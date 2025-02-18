@@ -53,6 +53,6 @@ async def get_all_workflows(db: Session):
             }
             workflow_list.append(workflow_dict)
             
-        return {"status": "success", "data": workflow_list}
+        return workflow_list
     except Exception as e:
         return {"status": "error", "message": str(e)}
