@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from src.integration.database import get_all_workflows, get_db
+from src.integration.database import get_all_workflows, get_workflow_by_id, get_db
 
 app = FastAPI()
 
@@ -18,6 +18,12 @@ app.add_middleware(
 async def root():
     db = next(get_db())
     return await get_all_workflows(db)
+
+
+@app.get("/api/workflows/{workflow_id}")
+async def get_workflow(workflow_id: str):
+    db = next(get_db())
+    return await get_workflow_by_id(db, workflow_id)
 
 
 if __name__ == "__main__":
