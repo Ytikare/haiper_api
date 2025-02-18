@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+from src.providers.database import test_db_connection
 
 app = FastAPI()
 
@@ -16,4 +17,11 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {"message": "API is running"}
+
+@app.get("/test-db")
+async def test_database():
+    return await test_db_connection()
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
 
