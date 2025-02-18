@@ -14,7 +14,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/")
+@app.get("/api/workflows")
 async def root():
     db = next(get_db())
     return await get_all_workflows(db)
