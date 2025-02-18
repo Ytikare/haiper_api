@@ -1,0 +1,136 @@
+[
+    {
+      "id": "1",
+      "name": "CV Analysis",
+      "description": "Analyze CVs and extract key information",
+      "status": "available",
+      "fields": [
+        {
+          "id": "cv-upload",
+          "name": "cvFile",
+          "type": "file",
+          "label": "Upload CV",
+          "required": true,
+          "validation": {
+            "fileTypes": [
+              ".pdf",
+              ".doc",
+              ".docx"
+            ]
+          }
+        }
+      ],
+      "apiConfig": {
+        "endpoint": "http://localhost:8000/text",
+        "method": "GET",
+        "headers": {
+          "Content-Type": "multipart/form-data"
+        }
+      },
+      "category": "HR",
+      "version": 1,
+      "isPublished": true,
+      "createdAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "updatedAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "createdBy": "system"
+    },
+    {
+      "id": "2",
+      "name": "IT Helper",
+      "description": "Get AI assistance for IT issues",
+      "status": "available",
+      "fields": [
+        {
+          "id": "problem",
+          "name": "problem",
+          "type": "textarea",
+          "label": "Describe your IT issue",
+          "required": true
+        }
+      ],
+      "apiConfig": {
+        "endpoint": "http://localhost:8000/image",
+        "method": "GET"
+      },
+      "category": "Support",
+      "version": 1,
+      "isPublished": true,
+      "createdAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "updatedAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "createdBy": "system"
+    },
+    {
+      "name": "Test",
+      "description": "Test desc",
+      "category": "Test",
+      "fields": [
+        {
+          "id": "age",
+          "name": "Age",
+          "label": "Age",
+          "type": "text",
+          "required": true,
+          "validation": {}
+        },
+        {
+          "id": "email",
+          "name": "Email",
+          "label": "Email",
+          "type": "email",
+          "required": false,
+          "validation": {}
+        },
+        {
+          "id": "document",
+          "name": "Document",
+          "label": "Document",
+          "type": "file",
+          "required": false,
+          "validation": {
+            "fileTypes": [
+              ".pdf",
+              ".doc",
+              ".docx"
+            ]
+          }
+        },
+        {
+          "id": "option",
+          "name": "select_option",
+          "label": "Select option",
+          "type": "dropdown",
+          "required": false,
+          "validation": {
+            "options": [
+              "One",
+              "Two",
+              "Three",
+              "Four"
+            ]
+          }
+        },
+        {
+          "id": "peepee_coocoo",
+          "name": "Peepee_coocoo",
+          "label": "peepee coocoo",
+          "type": "textarea",
+          "required": false,
+          "validation": {
+            "minLength": "10",
+            "maxLength": "1000"
+          }
+        }
+      ],
+      "apiConfig": {
+        "endpoint": "http://localhost:8000/summary",
+        "method": "GET"
+      },
+      "id": "bc1zcj2s4",
+      "createdAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "updatedAt": "Mon Feb 18 2025 10:30:15 GMT+0000 (Coordinated Universal Time)",
+      "version": 1,
+      "isPublished": false,
+      "status": "available",
+      "createdBy": "admin"
+    }
+  ]
