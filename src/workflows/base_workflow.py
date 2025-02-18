@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict
 from src.functions.utils import format_response
-from src.providers.database import Database
+from src.integration.database import Database
 
 class BaseWorkflow(ABC):
     def __init__(self):
