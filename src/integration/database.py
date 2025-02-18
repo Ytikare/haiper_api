@@ -26,3 +26,33 @@ async def test_db_connection():
         return {"status": "success", "message": "Database connection successful"}
     except Exception as e:
         return {"status": "error", "message": str(e)}
+
+from sqlalchemy.orm import Session
+from .models import WorkflowStructure
+
+async def get_all_workflows(db: Session):
+    try:
+        workflows = db.query(WorkflowStructure).all()
+        
+        # Convert SQLAlchemy objects to dictionaries
+        workflow_list = []
+        for workflow in workflows:
+            workflow_dict = {
+                "id": workflow.id,
+                "name": workflow.name,
+                "description": workflow.description,
+                "status": workflow.status,
+                "fields": workflow.fields,
+                "apiConfig": workflow.api_config,
+                "category": workflow.category,
+                "version": workflow.version,
+                "isPublished": workflow.is_published,
+                "createdAt": workflow.created_at.isoformat(),
+                "updatedAt": workflow.updated_at.isoformat(),
+                "createdBy": workflow.created_by
+            }
+            workflow_list.append(workflow_dict)
+            
+        return {"status": "success", "data": workflow_list}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
