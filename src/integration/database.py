@@ -18,15 +18,6 @@ def get_db():
     finally:
         db.close()
 
-async def test_db_connection():
-    try:
-        # Test the connection by making a simple query
-        connection = engine.connect()
-        connection.close()
-        return {"status": "success", "message": "Database connection successful"}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
-
 from sqlalchemy.orm import Session
 from .models import WorkflowStructure
 

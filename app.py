@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from src.integration.database import test_db_connection, get_all_workflows, get_db
+from src.integration.database import get_all_workflows, get_db
 
 app = FastAPI()
 
@@ -19,9 +19,6 @@ async def root():
     db = next(get_db())
     return await get_all_workflows(db)
 
-@app.get("/test-db")
-async def test_database():
-    return await test_db_connection()
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
