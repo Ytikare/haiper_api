@@ -19,11 +19,11 @@ def get_db():
         db.close()
 
 from sqlalchemy.orm import Session
-from .models import WorkflowStructure
+from .models import WorkflowFormStructure, WorkflowStructure
 
 async def get_all_workflows(db: Session):
     try:
-        workflows = db.query(WorkflowStructure).all()
+        workflows = db.query( WorkflowStructure).all()
         
         # Convert SQLAlchemy objects to dictionaries
         workflow_list = []
@@ -50,7 +50,7 @@ async def get_all_workflows(db: Session):
 
 async def get_workflow_by_id(db: Session, workflow_id: str):
     try:
-        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        workflow = db.query(WorkflowFormStructure).filter(WorkflowFormStructure.id == workflow_id).first()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
@@ -62,12 +62,7 @@ async def get_workflow_by_id(db: Session, workflow_id: str):
             "status": workflow.status,
             "fields": workflow.fields,
             "apiConfig": workflow.api_config,
-            "category": workflow.category,
-            "version": workflow.version,
             "isPublished": workflow.is_published,
-            "createdAt": workflow.created_at.isoformat(),
-            "updatedAt": workflow.updated_at.isoformat(),
-            "createdBy": workflow.created_by
         }
         
         return workflow_dict
