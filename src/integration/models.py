@@ -21,3 +21,11 @@ class WorkflowStructure(WorkflowFormStructure):
     created_by = Column(String)
     is_deleted = Column(Boolean, default=False)
 
+class WorkflowSubmission(Base):
+    __tablename__ = "workflow_submissions"
+
+    id = Column(String, primary_key=True)
+    workflow_id = Column(String, nullable=False)
+    is_positive = Column(Boolean, default=False)
+    submitted_at = Column(DateTime, default=datetime.utcnow)
+
