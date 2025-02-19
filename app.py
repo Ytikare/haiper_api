@@ -1,7 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from src.integration.database import get_all_workflows, get_workflow_by_id, get_db
+from src.integration.database import get_all_workflows, get_workflow_by_id, get_db, update_workflow
 
 app = FastAPI()
 
@@ -24,6 +24,12 @@ async def root():
 async def get_workflow(workflow_id: str):
     db = next(get_db())
     return await get_workflow_by_id(db, workflow_id)
+
+
+@app.put("/api/workflows/{workflow_id}")
+async def update_workflow_endpoint(workflow_id: str, workflow_data: dict = Body(...)):
+    db = next(get_db())
+    return await update_workflow(db, workflow_id, workflow_data)
 
 
 if __name__ == "__main__":
