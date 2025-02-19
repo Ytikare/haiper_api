@@ -29,7 +29,7 @@ from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
 async def get_all_workflows(db: Session):
     try:
-        workflows = db.query( WorkflowStructure).where(WorkflowStructure.is_deleted).all()
+        workflows = db.query( WorkflowStructure).where(WorkflowStructure.is_deleted == False).all()
         
         # Convert SQLAlchemy objects to dictionaries
         workflow_list = []
@@ -154,8 +154,8 @@ async def create_workflow_submission(db: Session, submission_data: dict):
     try:
         # Create new WorkflowSubmission instance
         new_submission = WorkflowSubmission(
-            workflow_id=submission_data.get('workflow_id'),
-            is_positive= True  if submission_data.get('is_positive') == "positive" else False
+            workflow_id=submission_data.get('workflowId'),
+            is_positive= True  if submission_data.get('feedback') == "positive" else False
         )
         
         # Add to database
