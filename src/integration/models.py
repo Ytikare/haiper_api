@@ -20,3 +20,4 @@ class WorkflowStructure(WorkflowFormStructure):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_by = Column(String)
     is_deleted = Column(Boolean, default=False)
+
