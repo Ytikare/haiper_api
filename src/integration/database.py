@@ -25,7 +25,7 @@ def get_db():
         db.close()
 
 from sqlalchemy.orm import Session
-from .models import WorkflowFormStructure, WorkflowStructure
+from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
 async def get_all_workflows(db: Session):
     try:
@@ -155,4 +155,25 @@ async def save_user_feedback(db: Session, workflow_data: dict):
 
     except Exception as e:
         db.rollback()
+        return {"status": "error", "message": str(e)}
+
+async def create_workflow_submission(db: Session, submission_data: dict):
+    try:
+        # Create new WorkflowSubmission instance
+        new_submission = WorkflowSubmission(
+            workflow_id=submission_data.get('workflow_id'),
+            is_positive=submission_data.get('is_positive', False)
+        )
+        
+        # Add to database
+        db.add(new_submission)
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Workflow submission created successfully",
+        }
+        
+    except Exception as e:
+        db.rollback()  # Rollback changes in case of error
         return {"status": "error", "message": str(e)}
