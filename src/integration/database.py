@@ -149,3 +149,10 @@ async def delete_workflow(db: Session, workflow_id: str):
     except Exception as e:
         db.rollback()  # Rollback changes in case of error
         return {"status": "error", "message": str(e)}
+
+async def save_user_feedback(db: Session, workflow_data: dict):
+    try:
+
+    except Exception as e:
+        db.rollback()
+        return {"status": "error", "message": str(e)}
