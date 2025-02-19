@@ -16,8 +16,9 @@ A FastAPI-based service for managing configurable workflows with PostgreSQL back
 
 ## Installation
 
-1. Clone the repository
-2. Install dependencies:
+1. Ensure that python is installed on your device
+2. Clone the repository
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
@@ -29,18 +30,20 @@ Create a `.env` file with:
 ```
 DATABASE_CONNECTION=postgresql://user:password@localhost:5432/dbname
 ```
+This is the connection string for your database. 
+
+Change values depending on your database settings
+
+The project assumes that you are using postgreSQL as a database.
+
 
 ## Database Schema
 
 The system uses three main models:
 
-### WorkflowFormStructure
-- Base structure for workflows
-- Fields: id, name, description, status, is_published, fields, api_config
-
 ### WorkflowStructure
-- Extends WorkflowFormStructure
-- Additional fields: category, version, created_at, updated_at, created_by, is_deleted
+- Used for storing workflow's structure
+- Fields: id, name, description, status, is_published, fields, api_config, category, version, created_at, updated_at, created_by, is_deleted
 
 ### WorkflowSubmission
 - Tracks workflow feedback
@@ -55,7 +58,7 @@ The system uses three main models:
 - PUT `/api/workflows/{workflow_id}` - Update workflow
 - DELETE `/api/workflows/{workflow_id}` - Delete workflow
 
-### Feedback
+### User Feedback
 - POST `/api/workflow-feedback` - Submit workflow feedback
 
 ### Test Endpoints
@@ -67,8 +70,9 @@ The system uses three main models:
 
 Start the server:
 ```bash
-python app.py
+uvicorn app:app --workfers X
 ```
+`--workers X` - used to specify the number of worker processes that should handle incoming requests. Assign according to system resources
 
 The API will be available at `http://localhost:8000`
 
