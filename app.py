@@ -51,30 +51,23 @@ async def create_workflow_feedback(feedback_data: dict = Body(...)):
     return await create_workflow_submission(db, feedback_data)
 
 
-@app.get("/api/summary/text")
+@app.get("/text")
 async def get_text_summary():
-    return PlainTextResponse("This is a workflow management system that handles creation, updating, and execution of workflows.")
+    return PlainTextResponse("This is a sample text response.")
 
-@app.get("/api/summary/json")
+@app.get("/summary")
 async def get_json_summary():
     summary = {
-        "system": "Workflow Management System",
-        "features": [
-            "Workflow CRUD operations",
-            "Workflow execution",
-            "Feedback submission"
-        ],
-        "endpoints": {
-            "total": 7,
-            "types": ["GET", "POST", "PUT", "DELETE"]
-        }
+        "title": 'Sample Summary',
+        "content": 'This is a brief summary of the content.',
+        "date": "2025-02-19T10:27:02.998Z"
     }
     return JSONResponse(content=summary)
 
-@app.get("/api/summary/image")
+@app.get("/image")
 async def get_system_diagram():
     # This is a placeholder path - you'll need to add the actual image file
-    image_path = "src/static/system_diagram.png"
+    image_path = "images/image.png"
     return FileResponse(image_path)
 
 if __name__ == "__main__":
