@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Body
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
-from src.integration.database import get_all_workflows, get_workflow_by_id, get_db, update_workflow, create_workflow
+from src.integration.database import get_all_workflows, get_workflow_by_id, get_db, update_workflow, create_workflow, delete_workflow
 
 app = FastAPI()
 
@@ -36,6 +36,12 @@ async def update_workflow_endpoint(workflow_id: str, workflow_data: dict = Body(
 async def create_workflow_endpoint(workflow_data: dict = Body(...)):
     db = next(get_db())
     return await create_workflow(db, workflow_data)
+
+
+@app.delete("/api/workflows/{workflow_id}")
+async def delete_workflow_endpoint(workflow_id: str):
+    db = next(get_db())
+    return await delete_workflow(db, workflow_id)
 
 
 if __name__ == "__main__":

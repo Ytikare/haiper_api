@@ -125,3 +125,27 @@ async def create_workflow(db: Session, workflow_data: dict):
     except Exception as e:
         db.rollback()  # Rollback changes in case of error
         return {"status": "error", "message": str(e)}
+
+
+async def delete_workflow(db: Session, workflow_id: str):
+    try:
+        # Find the workflow by id
+        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        
+        if not workflow:
+            return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
+        
+        # Set is_deleted to True
+        workflow.is_deleted = True
+        
+        # Commit the changes to the database
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Workflow deleted successfully"
+        }
+        
+    except Exception as e:
+        db.rollback()  # Rollback changes in case of error
+        return {"status": "error", "message": str(e)}
