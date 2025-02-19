@@ -92,3 +92,36 @@ async def update_workflow(db: Session, workflow_id: str, workflow_data: dict):
     except Exception as e:
         db.rollback()  # Rollback changes in case of error
         return {"status": "error", "message": str(e)}
+
+async def create_workflow(db: Session, workflow_data: dict):
+    try:
+        # Create new WorkflowStructure instance
+        new_workflow = WorkflowStructure(
+            id=workflow_data.get('id'),
+            name=workflow_data.get('name'),
+            description=workflow_data.get('description'),
+            status=workflow_data.get('status'),
+            fields=workflow_data.get('fields'),
+            api_config=workflow_data.get('apiConfig'),
+            category=workflow_data.get('category'),
+            version=workflow_data.get('version', 1),
+            is_published=workflow_data.get('isPublished', False),
+            created_by=workflow_data.get('createdBy')
+        )
+        
+        # Add to database
+        db.add(new_workflow)
+        db.commit()
+        
+        return {
+            "status": "success",
+            "message": "Workflow created successfully",
+            "data": {
+                "id": new_workflow.id,
+                "name": new_workflow.name
+            }
+        }
+        
+    except Exception as e:
+        db.rollback()  # Rollback changes in case of error
+        return {"status": "error", "message": str(e)}
