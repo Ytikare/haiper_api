@@ -116,10 +116,6 @@ async def create_workflow(db: Session, workflow_data: dict):
         return {
             "status": "success",
             "message": "Workflow created successfully",
-            "data": {
-                "id": new_workflow.id,
-                "name": new_workflow.name
-            }
         }
         
     except Exception as e:
