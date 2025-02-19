@@ -155,7 +155,7 @@ async def create_workflow_submission(db: Session, submission_data: dict):
         # Create new WorkflowSubmission instance
         new_submission = WorkflowSubmission(
             workflow_id=submission_data.get('workflow_id'),
-            is_positive=submission_data.get('is_positive', False)
+            is_positive= True  if submission_data.get('is_positive') == "positive" else False
         )
         
         # Add to database
