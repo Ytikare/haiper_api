@@ -29,7 +29,7 @@ from .models import WorkflowFormStructure, WorkflowStructure
 
 async def get_all_workflows(db: Session):
     try:
-        workflows = db.query( WorkflowStructure).all()
+        workflows = db.query( WorkflowStructure).where(WorkflowStructure.is_deleted).all()
         
         # Convert SQLAlchemy objects to dictionaries
         workflow_list = []
