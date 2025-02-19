@@ -2,6 +2,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from ..functions.utils import assign_new_values
+
 # You'll need to modify these according to your PostgreSQL setup
 SQLALCHEMY_DATABASE_URL = "postgresql://MIIvanov:@localhost:5432/postgres"
 
@@ -76,22 +78,8 @@ async def update_workflow(db: Session, workflow_id: str, workflow_data: dict):
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
-        
-        # Update the workflow attributes
-        for key, value in workflow_data.items():
-            # Convert camelCase to snake_case for database columns
-            if key == "apiConfig":
-                setattr(workflow, "api_config", value)
-            elif key == "isPublished":
-                setattr(workflow, "is_published", value)
-            elif key == "createdAt":
-                setattr(workflow, "created_at", value)
-            elif key == "updatedAt":
-                setattr(workflow, "updated_at", value)
-            elif key == "createdBy":
-                setattr(workflow, "created_by", value)
-            else:
-                setattr(workflow, key, value)
+
+        assign_new_values(workflow, workflow_data)
         
         # Commit the changes to the database
         db.commit()
@@ -100,20 +88,6 @@ async def update_workflow(db: Session, workflow_id: str, workflow_data: dict):
         return {
             "status": "success",
             "message": "Workflow updated successfully",
-            "data": {
-                "id": workflow.id,
-                "name": workflow.name,
-                "description": workflow.description,
-                "status": workflow.status,
-                "fields": workflow.fields,
-                "apiConfig": workflow.api_config,
-                "category": workflow.category,
-                "version": workflow.version,
-                "isPublished": workflow.is_published,
-                "createdAt": workflow.created_at.isoformat(),
-                "updatedAt": workflow.updated_at.isoformat(),
-                "createdBy": workflow.created_by
-            }
         }
     except Exception as e:
         db.rollback()  # Rollback changes in case of error
