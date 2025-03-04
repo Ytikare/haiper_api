@@ -68,11 +68,21 @@ The system uses three main models:
 
 ## Running the Application
 
-Start the server:
+Start the server using either uvicorn (development) or gunicorn (production):
+
+### Development (uvicorn):
 ```bash
-uvicorn app:app --workfers X
+uvicorn app:app --workers X
 ```
+
+### Production (gunicorn):
+```bash
+gunicorn app:app --workers X --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+```
+
 `--workers X` - used to specify the number of worker processes that should handle incoming requests. Assign according to system resources
+`--worker-class uvicorn.workers.UvicornWorker` - needed for ASGI support
+`--bind 0.0.0.0:8000` - binds the server to all network interfaces on port 8000
 
 The API will be available at `http://localhost:8000`
 
