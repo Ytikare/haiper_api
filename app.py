@@ -23,39 +23,38 @@ app.add_middleware(
 
 @app.get("/api/workflows")
 async def root():
-    db = next(get_db())
-    print(db)
-    return await get_all_workflows(db)
+    async for db in get_db():
+        return await get_all_workflows(db)
 
 
 @app.get("/api/workflows/{workflow_id}")
 async def get_workflow(workflow_id: str):
-    db = next(get_db())
-    return await get_workflow_by_id(db, workflow_id)
+    async for db in get_db():
+        return await get_workflow_by_id(db, workflow_id)
 
 
 @app.put("/api/workflows/{workflow_id}")
 async def update_workflow_endpoint(workflow_id: str, workflow_data: dict = Body(...)):
-    db = next(get_db())
-    return await update_workflow(db, workflow_id, workflow_data)
+    async for db in get_db():
+        return await update_workflow(db, workflow_id, workflow_data)
 
 
 @app.post("/api/workflows")
 async def create_workflow_endpoint(workflow_data: dict = Body(...)):
-    db = next(get_db())
-    return await create_workflow(db, workflow_data)
+    async for db in get_db():
+        return await create_workflow(db, workflow_data)
 
 
 @app.delete("/api/workflows/{workflow_id}")
 async def delete_workflow_endpoint(workflow_id: str):
-    db = next(get_db())
-    return await delete_workflow(db, workflow_id)
+    async for db in get_db():
+        return await delete_workflow(db, workflow_id)
 
 
 @app.post("/api/workflow-feedback")
 async def create_workflow_feedback(feedback_data: dict = Body(...)):
-    db = next(get_db())
-    return await create_workflow_submission(db, feedback_data)
+    async for db in get_db():
+        return await create_workflow_submission(db, feedback_data)
 
 
 @app.get("/text")
