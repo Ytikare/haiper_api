@@ -70,7 +70,7 @@ The system uses three main models:
 
 Start the server:
 ```bash
-uvicorn app:app --workfers X
+uvicorn app:app --workers X
 ```
 `--workers X` - used to specify the number of worker processes that should handle incoming requests. Assign according to system resources
 
