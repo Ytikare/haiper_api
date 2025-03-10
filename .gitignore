@@ -1,3 +1,8 @@
 .aider*
 .idea
 .env
+.codelens/full_1.txt
+.codelens/analysis.txt
+__pycache__/app.cpython-312.pyc
+src/functions/__pycache__/utils.cpython-312.pyc
+src/integration/__pycache__/database.cpython-312.pyc
