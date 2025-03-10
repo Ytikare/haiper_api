@@ -1,5 +1,6 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
@@ -11,30 +12,41 @@ load_dotenv()
 # You'll need to modify these according to your PostgreSQL setup
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_CONNECTION")
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(
+    SQLALCHEMY_DATABASE_URL,
+    echo=True,
+    future=True
+)
+
+SessionLocal = sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False
+)
 
 Base = declarative_base()
 
 # Dependency to get DB session
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with SessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
 
 from sqlalchemy.orm import Session
 from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
-async def get_all_workflows(db: Session):
+async def get_all_workflows(db: AsyncSession):
     try:
-        workflows = db.query( WorkflowStructure).where(WorkflowStructure.is_deleted == False).all()
+        result = await db.execute(
+            select(WorkflowStructure)
+            .where(WorkflowStructure.is_deleted == False)
+        )
+        workflows = result.scalars().all()
         
-        # Convert SQLAlchemy objects to dictionaries
-        workflow_list = []
-        for workflow in workflows:
-            workflow_dict = {
+        workflow_list = [
+            {
                 "id": workflow.id,
                 "name": workflow.name,
                 "description": workflow.description,
@@ -48,9 +60,9 @@ async def get_all_workflows(db: Session):
                 "updatedAt": workflow.updated_at.isoformat(),
                 "createdBy": workflow.created_by
             }
-            workflow_list.append(workflow_dict)
-            
-        print(workflow_list)
+            for workflow in workflows
+        ]
+        
         return workflow_list
     except Exception as e:
         return {"status": "error", "message": str(e)}
