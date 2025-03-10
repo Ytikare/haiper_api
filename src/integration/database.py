@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
@@ -9,13 +9,14 @@ from ..functions.utils import assign_new_values
 
 load_dotenv()
 
-# You'll need to modify these according to your PostgreSQL setup
+# Database connection
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_CONNECTION")
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     echo=True,
-    future=True
+    future=True,
+    connect_args={"ssl": False}
 )
 
 SessionLocal = sessionmaker(
@@ -34,7 +35,6 @@ async def get_db():
         finally:
             await session.close()
 
-from sqlalchemy.orm import Session
 from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
 async def get_all_workflows(db: AsyncSession):
@@ -67,9 +67,14 @@ async def get_all_workflows(db: AsyncSession):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-async def get_workflow_by_id(db: Session, workflow_id: str):
+async def get_workflow_by_id(db: AsyncSession, workflow_id: str):
     try:
-        workflow = db.query(WorkflowFormStructure).filter(WorkflowFormStructure.id == workflow_id).first()
+        # Use async query instead of sync query
+        result = await db.execute(
+            select(WorkflowFormStructure)
+            .where(WorkflowFormStructure.id == workflow_id)
+        )
+        workflow = result.scalar_one_or_none()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
@@ -88,29 +93,34 @@ async def get_workflow_by_id(db: Session, workflow_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-async def update_workflow(db: Session, workflow_id: str, workflow_data: dict):
+async def update_workflow(db: AsyncSession, workflow_id: str, workflow_data: dict):
     try:
-        # Find the workflow by id
-        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        # Use async query to find the workflow
+        result = await db.execute(
+            select(WorkflowStructure)
+            .where(WorkflowStructure.id == workflow_id)
+        )
+        workflow = result.scalar_one_or_none()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
 
+        # Assign new values using your utility function
         assign_new_values(workflow, workflow_data)
         
-        # Commit the changes to the database
-        db.commit()
+        # Use async methods to save changes
+        db.add(workflow)
+        await db.commit()
         
-        # Return the updated workflow
         return {
             "status": "success",
             "message": "Workflow updated successfully",
         }
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
 
-async def create_workflow(db: Session, workflow_data: dict):
+async def create_workflow(db: AsyncSession, workflow_data: dict):
     try:
         # Create new WorkflowStructure instance
         new_workflow = WorkflowStructure(
@@ -126,9 +136,9 @@ async def create_workflow(db: Session, workflow_data: dict):
             created_by=workflow_data.get('createdBy')
         )
         
-        # Add to database
+        # Add to database with async methods
         db.add(new_workflow)
-        db.commit()
+        await db.commit()
         
         return {
             "status": "success",
@@ -136,14 +146,17 @@ async def create_workflow(db: Session, workflow_data: dict):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
 
-
-async def delete_workflow(db: Session, workflow_id: str):
+async def delete_workflow(db: AsyncSession, workflow_id: str):
     try:
-        # Find the workflow by id
-        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        # Find the workflow using async methods
+        result = await db.execute(
+            select(WorkflowStructure)
+            .where(WorkflowStructure.id == workflow_id)
+        )
+        workflow = result.scalar_one_or_none()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
@@ -151,8 +164,8 @@ async def delete_workflow(db: Session, workflow_id: str):
         # Set is_deleted to True
         workflow.is_deleted = True
         
-        # Commit the changes to the database
-        db.commit()
+        # Commit using async methods
+        await db.commit()
         
         return {
             "status": "success",
@@ -160,20 +173,20 @@ async def delete_workflow(db: Session, workflow_id: str):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
 
-async def create_workflow_submission(db: Session, submission_data: dict):
+async def create_workflow_submission(db: AsyncSession, submission_data: dict):
     try:
         # Create new WorkflowSubmission instance
         new_submission = WorkflowSubmission(
             workflow_id=submission_data.get('workflowId'),
-            is_positive= True  if submission_data.get('feedback') == "positive" else False
+            is_positive= True if submission_data.get('feedback') == "positive" else False
         )
         
-        # Add to database
+        # Add to database with async methods
         db.add(new_submission)
-        db.commit()
+        await db.commit()
         
         return {
             "status": "success",
@@ -181,5 +194,5 @@ async def create_workflow_submission(db: Session, submission_data: dict):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
