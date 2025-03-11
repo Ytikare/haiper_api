@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
+from datetime import datetime
 
 from ..functions.utils import assign_new_values
 
@@ -29,11 +30,11 @@ Base = declarative_base()
 
 # Dependency to get DB session
 async def get_db():
-    async with SessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        await db.close()
 
 from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
@@ -95,21 +96,58 @@ async def get_workflow_by_id(db: AsyncSession, workflow_id: str):
 
 async def update_workflow(db: AsyncSession, workflow_id: str, workflow_data: dict):
     try:
-        # Use async query to find the workflow
-        result = await db.execute(
-            select(WorkflowStructure)
-            .where(WorkflowStructure.id == workflow_id)
-        )
-        workflow = result.scalar_one_or_none()
+        # Create a dictionary for all the values to update
+        update_values = {}
         
-        if not workflow:
-            return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
-
-        # Assign new values using your utility function
-        assign_new_values(workflow, workflow_data)
+        # Process each field from workflow_data
+        for key, value in workflow_data.items():
+            if key == "fields":
+                update_values["fields"] = value
+            elif key == "name":
+                update_values["name"] = value
+            elif key == "description":
+                update_values["description"] = value
+            elif key == "status":
+                update_values["status"] = value
+            elif key == "apiConfig":
+                update_values["api_config"] = value
+            elif key == "category":
+                update_values["category"] = value
+            elif key == "version":
+                update_values["version"] = value
+            elif key == "isPublished":
+                update_values["is_published"] = value
+            elif key == "createdBy":
+                update_values["created_by"] = value
+            elif key == "updatedAt":
+                # Handle datetime conversion
+                if isinstance(value, str):
+                    try:
+                        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        # Convert to naive datetime
+                        update_values["updated_at"] = datetime(
+                            dt.year, dt.month, dt.day, 
+                            dt.hour, dt.minute, dt.second, dt.microsecond
+                        )
+                    except ValueError:
+                        update_values["updated_at"] = datetime.utcnow()
+                else:
+                    update_values["updated_at"] = value
+            # Skip 'id' as it's the primary key and can't be updated
         
-        # Use async methods to save changes
-        db.add(workflow)
+        # Always update updated_at if not already set
+        if "updated_at" not in update_values:
+            update_values["updated_at"] = datetime.utcnow()
+        
+        # Execute the update statement
+        update_stmt = update(WorkflowStructure).where(
+            WorkflowStructure.id == workflow_id
+        ).values(**update_values)
+        
+        # Execute the statement
+        await db.execute(update_stmt)
+        
+        # Explicitly commit the transaction
         await db.commit()
         
         return {
@@ -117,7 +155,9 @@ async def update_workflow(db: AsyncSession, workflow_id: str, workflow_data: dic
             "message": "Workflow updated successfully",
         }
     except Exception as e:
-        await db.rollback()  # Use async rollback
+        # Log the error for debugging
+        print(f"Error in update_workflow: {str(e)}")
+        await db.rollback()
         return {"status": "error", "message": str(e)}
 
 async def create_workflow(db: AsyncSession, workflow_data: dict):

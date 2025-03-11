@@ -41,7 +41,8 @@ async def get_workflow(workflow_id: str):
 @app.put("/api/workflows/{workflow_id}")
 async def update_workflow_endpoint(workflow_id: str, workflow_data: dict = Body(...)):
     async for db in get_db():
-        return await update_workflow(db, workflow_id, workflow_data)
+        result = await update_workflow(db, workflow_id, workflow_data)
+        return result
 
 
 @app.post("/api/workflows")
