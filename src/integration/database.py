@@ -1,21 +1,23 @@
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, update
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
+from datetime import datetime
 
 from ..functions.utils import assign_new_values
 
 load_dotenv()
 
-# You'll need to modify these according to your PostgreSQL setup
+# Database connection
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_CONNECTION")
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
     echo=True,
-    future=True
+    future=True,
+    connect_args={"ssl": False}
 )
 
 SessionLocal = sessionmaker(
@@ -28,13 +30,12 @@ Base = declarative_base()
 
 # Dependency to get DB session
 async def get_db():
-    async with SessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        await db.close()
 
-from sqlalchemy.orm import Session
 from .models import WorkflowFormStructure, WorkflowStructure, WorkflowSubmission
 
 async def get_all_workflows(db: AsyncSession):
@@ -67,9 +68,14 @@ async def get_all_workflows(db: AsyncSession):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-async def get_workflow_by_id(db: Session, workflow_id: str):
+async def get_workflow_by_id(db: AsyncSession, workflow_id: str):
     try:
-        workflow = db.query(WorkflowFormStructure).filter(WorkflowFormStructure.id == workflow_id).first()
+        # Use async query instead of sync query
+        result = await db.execute(
+            select(WorkflowFormStructure)
+            .where(WorkflowFormStructure.id == workflow_id)
+        )
+        workflow = result.scalar_one_or_none()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
@@ -88,29 +94,73 @@ async def get_workflow_by_id(db: Session, workflow_id: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-async def update_workflow(db: Session, workflow_id: str, workflow_data: dict):
+async def update_workflow(db: AsyncSession, workflow_id: str, workflow_data: dict):
     try:
-        # Find the workflow by id
-        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        # Create a dictionary for all the values to update
+        update_values = {}
         
-        if not workflow:
-            return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
-
-        assign_new_values(workflow, workflow_data)
+        # Process each field from workflow_data
+        for key, value in workflow_data.items():
+            if key == "fields":
+                update_values["fields"] = value
+            elif key == "name":
+                update_values["name"] = value
+            elif key == "description":
+                update_values["description"] = value
+            elif key == "status":
+                update_values["status"] = value
+            elif key == "apiConfig":
+                update_values["api_config"] = value
+            elif key == "category":
+                update_values["category"] = value
+            elif key == "version":
+                update_values["version"] = value
+            elif key == "isPublished":
+                update_values["is_published"] = value
+            elif key == "createdBy":
+                update_values["created_by"] = value
+            elif key == "updatedAt":
+                # Handle datetime conversion
+                if isinstance(value, str):
+                    try:
+                        dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        # Convert to naive datetime
+                        update_values["updated_at"] = datetime(
+                            dt.year, dt.month, dt.day, 
+                            dt.hour, dt.minute, dt.second, dt.microsecond
+                        )
+                    except ValueError:
+                        update_values["updated_at"] = datetime.utcnow()
+                else:
+                    update_values["updated_at"] = value
+            # Skip 'id' as it's the primary key and can't be updated
         
-        # Commit the changes to the database
-        db.commit()
+        # Always update updated_at if not already set
+        if "updated_at" not in update_values:
+            update_values["updated_at"] = datetime.utcnow()
         
-        # Return the updated workflow
+        # Execute the update statement
+        update_stmt = update(WorkflowStructure).where(
+            WorkflowStructure.id == workflow_id
+        ).values(**update_values)
+        
+        # Execute the statement
+        await db.execute(update_stmt)
+        
+        # Explicitly commit the transaction
+        await db.commit()
+        
         return {
             "status": "success",
             "message": "Workflow updated successfully",
         }
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        # Log the error for debugging
+        print(f"Error in update_workflow: {str(e)}")
+        await db.rollback()
         return {"status": "error", "message": str(e)}
 
-async def create_workflow(db: Session, workflow_data: dict):
+async def create_workflow(db: AsyncSession, workflow_data: dict):
     try:
         # Create new WorkflowStructure instance
         new_workflow = WorkflowStructure(
@@ -126,9 +176,9 @@ async def create_workflow(db: Session, workflow_data: dict):
             created_by=workflow_data.get('createdBy')
         )
         
-        # Add to database
+        # Add to database with async methods
         db.add(new_workflow)
-        db.commit()
+        await db.commit()
         
         return {
             "status": "success",
@@ -136,14 +186,17 @@ async def create_workflow(db: Session, workflow_data: dict):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
 
-
-async def delete_workflow(db: Session, workflow_id: str):
+async def delete_workflow(db: AsyncSession, workflow_id: str):
     try:
-        # Find the workflow by id
-        workflow = db.query(WorkflowStructure).filter(WorkflowStructure.id == workflow_id).first()
+        # Find the workflow using async methods
+        result = await db.execute(
+            select(WorkflowStructure)
+            .where(WorkflowStructure.id == workflow_id)
+        )
+        workflow = result.scalar_one_or_none()
         
         if not workflow:
             return {"status": "error", "message": f"Workflow with id {workflow_id} not found"}
@@ -151,8 +204,8 @@ async def delete_workflow(db: Session, workflow_id: str):
         # Set is_deleted to True
         workflow.is_deleted = True
         
-        # Commit the changes to the database
-        db.commit()
+        # Commit using async methods
+        await db.commit()
         
         return {
             "status": "success",
@@ -160,20 +213,20 @@ async def delete_workflow(db: Session, workflow_id: str):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
 
-async def create_workflow_submission(db: Session, submission_data: dict):
+async def create_workflow_submission(db: AsyncSession, submission_data: dict):
     try:
         # Create new WorkflowSubmission instance
         new_submission = WorkflowSubmission(
             workflow_id=submission_data.get('workflowId'),
-            is_positive= True  if submission_data.get('feedback') == "positive" else False
+            is_positive= True if submission_data.get('feedback') == "positive" else False
         )
         
-        # Add to database
+        # Add to database with async methods
         db.add(new_submission)
-        db.commit()
+        await db.commit()
         
         return {
             "status": "success",
@@ -181,5 +234,5 @@ async def create_workflow_submission(db: Session, submission_data: dict):
         }
         
     except Exception as e:
-        db.rollback()  # Rollback changes in case of error
+        await db.rollback()  # Use async rollback
         return {"status": "error", "message": str(e)}
