@@ -88,13 +88,6 @@ async def process_rfil_workflow(
 ):
     """
     RFIL workflow endpoint that processes a PDF file submission.
-    
-    Workflow steps:
-    1. Obtain and validate the PDF
-    2. Store valid PDFs as temporary files
-    3. Process the file with PyMuPDF and Tesseract OCR
-    4. Return combined results
-    5. Delete the temporary file
     """
     start_time = time.time()
     logger.info("RFIL workflow endpoint called")
@@ -163,9 +156,29 @@ async def process_rfil_workflow(
             logger.info("Starting PDF processing with PyMuPDF and Tesseract")
             process_results = process_pdf_end_to_end(
                 temp_file_path, 
-                ocr_language='bul+eng', 
+                ocr_language='bul',  # Ensure Bulgarian language 
                 save_text=True
             )
+            
+            # Log process results for debugging
+            logger.info(f"Process results type: {type(process_results)}")
+            if isinstance(process_results, dict):
+                # Try to log part of the results safely
+                safe_log = {k: v for k, v in process_results.items() if k != 'text_extraction'} 
+                logger.info(f"Process results (partial): {json.dumps(safe_log, ensure_ascii=False)[:500]}...")
+                
+                # Check if there was an error
+                if "error" in process_results:
+                    logger.error(f"Error in PDF processing: {process_results['error']}")
+                    return JSONResponse(
+                        status_code=400,
+                        content={
+                            "status": "error", 
+                            "message": f"Error processing PDF: {process_results['error']}",
+                            "filename": rfil.filename,
+                            "file_id": file_id
+                        }
+                    )
             
             # Prepare the response with combined results
             response_data = {
@@ -173,9 +186,24 @@ async def process_rfil_workflow(
                 "message": "PDF file has been processed successfully", 
                 "filename": rfil.filename,
                 "file_id": file_id,
-                "pages": len(pdf_reader.pages),
-                "process_results": process_results
+                "pages": len(pdf_reader.pages)
             }
+            
+            # Ensure process_results is JSON serializable
+            if isinstance(process_results, dict):
+                # Add process_results to response_data
+                response_data["process_results"] = process_results
+                
+                # Extract text length for the frontend
+                if "text_length" in process_results:
+                    response_data["text_length"] = process_results["text_length"]
+                    
+                # Extract entity count for the frontend
+                if "entities" in process_results:
+                    response_data["entity_count"] = len(process_results["entities"])
+            else:
+                logger.warning(f"Unexpected process_results type: {type(process_results)}")
+                response_data["process_results"] = {"warning": "Unexpected result format"}
             
             # Include any additional data in the response if needed
             if additional_data:
@@ -187,9 +215,19 @@ async def process_rfil_workflow(
             logger.info(f"Processing completed in {processing_time:.2f} seconds")
             response_data["processing_time"] = f"{processing_time:.2f} seconds"
             
-            # Delete the temporary file (optional - you may want to keep it for a while)
+            # Log what we're sending back
+            logger.info(f"Sending response with {response_data.get('entity_count', 0)} entities")
+            
+            # Delete the temporary file
             os.remove(temp_file_path)
             logger.info(f"Removed temp file: {temp_file_path}")
+            
+            # Try to log the response data in a safe way
+            try:
+                response_sample = json.dumps(response_data, ensure_ascii=False)[:1000]
+                logger.info(f"Response data sample: {response_sample}...")
+            except Exception as json_error:
+                logger.warning(f"Could not JSON encode response for logging: {str(json_error)}")
             
             return JSONResponse(content=response_data)
             

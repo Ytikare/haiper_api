@@ -1,10 +1,8 @@
-# This file will contain common utility functions
 import PyPDF2
 import pytesseract
 from PIL import Image
 import io
 import numpy as np
-from openai import AzureOpenAI
 import httpx
 import json
 import time
@@ -16,17 +14,16 @@ import logging
 import fitz  # PyMuPDF
 from dotenv import load_dotenv
 
+# Import the new modules
+from src.providers.azure_openai import get_completion_with_retries
+from src.prompts.rfil_prompts import ENTITY_EXTRACTION_PROMPT
+
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Get configuration from environment variables
 load_dotenv()
-AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
-AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION')
-AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT')
-AZURE_OPENAI_DEPLOYMENT_NAME = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
-HTTPS_PROXY = os.getenv('HTTPS_PROXY')
 
 # Set Tesseract path from environment variable
 tesseract_path = os.getenv('TESSERACT_PATH')
@@ -37,32 +34,6 @@ if tesseract_path:
     logger.info(f"Tesseract path set to: {pytesseract.pytesseract.tesseract_cmd}")
 else:
     logger.warning("TESSERACT_PATH environment variable not set")
-
-def format_response(data, status="success", message=None):
-    return {
-        "status": status,
-        "message": message,
-        "data": data
-    }
-
-def assign_new_values(workflow:any, workflow_data: dict):
-    # Update the workflow attributes
-    for key, value in workflow_data.items():
-        # Convert camelCase to snake_case for database columns
-        if key == "apiConfig":
-            setattr(workflow, "api_config", value)
-        elif key == "isPublished":
-            setattr(workflow, "is_published", value)
-        elif key == "createdAt":
-            setattr(workflow, "created_at", value)
-        elif key == "updatedAt":
-            setattr(workflow, "updated_at", value)
-        elif key == "id":
-            continue
-        elif key == "createdBy":
-            setattr(workflow, "created_by", value)
-        else:
-            setattr(workflow, key, value)
 
 def is_valid_egn(egn):
     """
@@ -219,7 +190,7 @@ def save_extracted_text(text, output_path=None, filename=None):
         logger.error(f"Error saving text file: {str(e)}")
         return None
 
-def extract_text_from_pdf_with_fitz(pdf_path, language='bul+eng', display_pages=False, auto_rotate=True):
+def extract_text_from_pdf_with_fitz(pdf_path, language='bul', display_pages=False, auto_rotate=True):
     """
     Extract text from PDF using PyMuPDF (fitz) and Tesseract OCR
     """
@@ -383,123 +354,48 @@ def extract_entities_from_text(text, max_retries=3, retry_delay=60):
         # Log text length
         logger.info(f"Text length: {len(text)} characters")
         
-        # Create HTTP client with proxy
-        http_client = None
-        if HTTPS_PROXY:
-            logger.info(f"Using proxy: {HTTPS_PROXY}")
-            http_client = httpx.Client(
-                transport=httpx.HTTPTransport(
-                    proxy=httpx.Proxy(url=HTTPS_PROXY)
-                ),
-                verify=False
-            )
-        
-        # Check for Azure OpenAI credentials
-        if not all([AZURE_OPENAI_API_KEY, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT_NAME]):
-            logger.error("Missing Azure OpenAI credentials - check environment variables")
-            return {"error": "Azure OpenAI credentials not configured"}
-        
-        # Initialize OpenAI client
-        logger.info(f"Initializing Azure OpenAI client with endpoint: {AZURE_OPENAI_ENDPOINT}")
-        client = AzureOpenAI(
-            api_key=AZURE_OPENAI_API_KEY,
-            api_version=AZURE_OPENAI_API_VERSION,
-            azure_endpoint=AZURE_OPENAI_ENDPOINT,
-            http_client=http_client
+        # Use the imported prompt and the Azure OpenAI provider
+        result = get_completion_with_retries(
+            text=text,
+            system_prompt=ENTITY_EXTRACTION_PROMPT,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+            temperature=0,
+            response_format={"type": "json_object"}
         )
         
-        # Using exponential backoff for retries
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"Entity extraction attempt {attempt+1}/{max_retries}")
-                system_prompt = """You are a data extraction assistant. Extract all people and companies mentioned in the document, along with their identification numbers (EGN for individuals, EIK for companies). 
-
-                For each extraction, include a confidence score from 0.0 to 1.0 that represents how confident you are in the accuracy of the extraction. Consider the following when determining confidence:
-                - For names: Is the full name clearly visible and properly formatted?
-                - For identification numbers: Are all digits clearly visible and does the format match expected patterns?
-                - For entity type: Is it clear whether this is a person or a company?
+        # Check for errors
+        if "error" in result:
+            logger.error(f"Error in entity extraction: {result['error']}")
+            return result
+        
+        # Validate identifiers for each entity
+        if "entities" in result and len(result["entities"]) > 0:
+            entity_count = len(result["entities"])
+            logger.info(f"Found {entity_count} entities, validating identifiers")
+            
+            for i, entity in enumerate(result["entities"]):
+                logger.info(f"Validating entity {i+1}/{entity_count}: {entity.get('name', 'Unknown')} - {entity.get('identification_number', 'No ID')}")
                 
-                Use these confidence levels:
-                - 1.0: Perfect clarity with no ambiguity
-                - 0.8-0.9: Very clear with minimal ambiguity
-                - 0.6-0.7: Mostly clear but with some uncertainty
-                - 0.4-0.5: Significant uncertainty but probably correct
-                - 0.1-0.3: Highly uncertain, likely contains errors
-                - 0.0: Cannot determine at all
-
-                Return the results in JSON format with the following structure:
-                {
-                    "entities": [
-                        {
-                            "name": "Full Name",
-                            "type": "person/company",
-                            "identification_number": "number",
-                            "identification_type": "EGN/EIK",
-                            "confidence": 0.8,
-                            "ValidIdentificator": "Valid/Invalid"
-                        }
-                    ],
-                    "overall_extraction_quality": 0.7
-                }
-                
-                Also include an overall_extraction_quality score from 0.0 to 1.0 that represents the general quality of the text extraction and your confidence in the overall data extraction process.
-                
-                Only include entities where both name and identification number are mentioned.
-                The document is in Bulgarian language.
-                """
-                
-                logger.info(f"Sending request to Azure OpenAI model: {AZURE_OPENAI_DEPLOYMENT_NAME}")
-                response = client.chat.completions.create(
-                    model=AZURE_OPENAI_DEPLOYMENT_NAME,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": text}
-                    ],
-                    temperature=0,
-                    response_format={"type": "json_object"}
-                )
-                
-                # Parse the response
-                logger.info("Parsing Azure OpenAI response")
-                result = json.loads(response.choices[0].message.content)
-                
-                # Validate identifiers for each entity
-                if "entities" in result and len(result["entities"]) > 0:
-                    entity_count = len(result["entities"])
-                    logger.info(f"Found {entity_count} entities, validating identifiers")
+                if entity["type"].lower() == "person" and entity["identification_type"] == "EGN":
+                    # Validate person's EGN
+                    is_valid = is_valid_egn(entity["identification_number"])
+                    entity["ValidIdentificator"] = "Valid" if is_valid else "Invalid"
+                    logger.info(f"EGN validation result: {entity['ValidIdentificator']}")
                     
-                    for i, entity in enumerate(result["entities"]):
-                        logger.info(f"Validating entity {i+1}/{entity_count}: {entity.get('name', 'Unknown')} - {entity.get('identification_number', 'No ID')}")
-                        
-                        if entity["type"].lower() == "person" and entity["identification_type"] == "EGN":
-                            # Validate person's EGN
-                            is_valid = is_valid_egn(entity["identification_number"])
-                            entity["ValidIdentificator"] = "Valid" if is_valid else "Invalid"
-                            logger.info(f"EGN validation result: {entity['ValidIdentificator']}")
-                            
-                        elif entity["type"].lower() == "company" and entity["identification_type"] == "EIK":
-                            # Validate company's EIK
-                            is_valid = validate_bulgarian_eik(entity["identification_number"])
-                            entity["ValidIdentificator"] = "Valid" if is_valid else "Invalid"
-                            logger.info(f"EIK validation result: {entity['ValidIdentificator']}")
-                            
-                        else:
-                            # For other types or identification types, mark as Valid
-                            entity["ValidIdentificator"] = "Valid"
-                            logger.info(f"Other ID type, marking as: {entity['ValidIdentificator']}")
-                
-                logger.info("Entity extraction completed successfully")
-                return result
-                
-            except Exception as api_error:
-                logger.error(f"Error in API call (attempt {attempt+1}): {str(api_error)}")
-                if attempt < max_retries - 1:
-                    backoff_time = retry_delay * (2 ** attempt)
-                    logger.info(f"Retrying in {backoff_time} seconds...")
-                    time.sleep(backoff_time)  # Exponential backoff
-                
-        logger.error(f"All {max_retries} extraction attempts failed")
-        return {"error": "Failed to extract entities after multiple attempts"}
+                elif entity["type"].lower() == "company" and entity["identification_type"] == "EIK":
+                    # Validate company's EIK
+                    is_valid = validate_bulgarian_eik(entity["identification_number"])
+                    entity["ValidIdentificator"] = "Valid" if is_valid else "Invalid"
+                    logger.info(f"EIK validation result: {entity['ValidIdentificator']}")
+                    
+                else:
+                    # For other types or identification types, mark as Valid
+                    entity["ValidIdentificator"] = "Valid"
+                    logger.info(f"Other ID type, marking as: {entity['ValidIdentificator']}")
+        
+        logger.info("Entity extraction completed successfully")
+        return result
         
     except Exception as e:
         logger.error(f"General error in entity extraction: {str(e)}")
@@ -507,7 +403,7 @@ def extract_entities_from_text(text, max_retries=3, retry_delay=60):
         logger.error(traceback.format_exc())
         return {"error": "Unexpected error during entity extraction"}
 
-def process_pdf_end_to_end(pdf_path, ocr_language='bul+eng', save_text=False, output_dir=None):
+def process_pdf_end_to_end(pdf_path, ocr_language='bul', save_text=False, output_dir=None):
     """
     Process a PDF file from start to finish:
     1. Extract text with PyMuPDF and Tesseract OCR
@@ -596,16 +492,6 @@ def process_pdf_end_to_end(pdf_path, ocr_language='bul+eng', save_text=False, ou
     logger.info(f"Text preview: {text_preview}...")
     
     # Step 2: Extract entities from the text using Azure OpenAI
-    # Only proceed if we have Azure OpenAI configured
-    if not all([AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_DEPLOYMENT_NAME]):
-        logger.warning("Azure OpenAI not configured, skipping entity extraction")
-        return {
-            "text_extraction": "success",
-            "entity_extraction": "skipped",
-            "text_length": len(extracted_text),
-            "text_preview": text_preview
-        }
-    
     logger.info("Starting entity extraction from extracted text")
     try:
         entities = extract_entities_from_text(extracted_text)
@@ -614,6 +500,14 @@ def process_pdf_end_to_end(pdf_path, ocr_language='bul+eng', save_text=False, ou
             logger.error("Failed to extract entities")
             return {
                 "error": "Failed to extract entities",
+                "text_extraction": "success",
+                "text_length": len(extracted_text)
+            }
+            
+        if "error" in entities:
+            logger.error(f"Error in entity extraction: {entities['error']}")
+            return {
+                "error": entities["error"],
                 "text_extraction": "success",
                 "text_length": len(extracted_text)
             }
