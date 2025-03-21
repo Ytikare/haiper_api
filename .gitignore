@@ -6,3 +6,9 @@
 __pycache__/app.cpython-312.pyc
 src/functions/__pycache__/utils.cpython-312.pyc
 src/integration/__pycache__/database.cpython-312.pyc
+/__pycache__
+.codelens
+/logs
+*__pycache__*
+/temp_files
+*.pyc

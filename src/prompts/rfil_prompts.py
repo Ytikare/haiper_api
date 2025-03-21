@@ -27,6 +27,6 @@ Return the results in JSON format with the following structure:
     ]
 }
 
-Only include entities where both name and identification number are mentioned - do not include entities, which only have names specified.
+Only include entities where both name and identification number are mentioned - do not include entities, where identificator is not included.
 The document is in Bulgarian language.
 """

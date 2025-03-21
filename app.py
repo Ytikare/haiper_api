@@ -17,13 +17,20 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# Add CORS middleware
+# Add CORS middleware with improved configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Modify this in production to specific origins
+    # Add your domain name alongside localhost for development
+    allow_origins=[
+        "http://localhost:7777", 
+        "https://localhost:7777",
+        "http://haiper.test.postbank.bg",
+        "https://haiper.test.postbank.bg"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # Useful for file downloads
 )
 
 @app.get("/api/workflows")
